@@ -5,51 +5,54 @@ import {
     EmbedBuilder,
 } from "discord.js";
 
+import { start_tracker, intervalId } from "../../functions/tracker_loop";
+
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("track")
-        .setDescription("Track a player")
+        .setDescription("Tracks player status")
         .addStringOption((str) =>
             str
                 .setName("identifier")
                 .setDescription("Username or UUID of the player")
                 .setRequired(true)
         )
-        .setDMPermission(true),
+        .addNumberOption((num) =>
+            num
+                .setName("interval")
+                .setDescription("Check interval")
+                .setMinValue(1)
+                .setRequired(false)
+        )
+        .addUserOption((usr) =>
+            usr
+                .setName("mention")
+                .setDescription("Who to mention when a user goes online/offline")
+                .setRequired(false)
+        )
+        .setDMPermission(false),
     global: false,
-    execute(interaction: ChatInputCommandInteraction, client: Client) {
-        const identifier = interaction.options.getString('identifier', true);
-        
-
-        interaction.reply({
-            embeds: [
-                new EmbedBuilder()
-                .setTitle(`${identifier}`)
-                .setDescription("Fetching...")
-                .setColor("#2b2d31")
-                .setThumbnail(`http://cravatar.eu/helmhead/${identifier}/128.png`),
-            ],
-            ephemeral: false,
+    async execute(interaction: ChatInputCommandInteraction, client: Client) {
+        await interaction.reply({
+            content: `Starting tracker...`
         })
-        .then(async () => {
-            const player = await client.hypixelClient.players.getStatus(identifier);
-            console.log(player);
-            interaction.editReply({
-                embeds: [
-                    new EmbedBuilder()
-                    .setTitle(`${identifier}`)
-                    .setDescription(
-                        [
-                            `**Status**: ${player.online ? "🟢 Online" : "🔴 Offline"}`,
-                                 `${player.online ? `**Gamemode**: ${player.gameType.toUpperCase()}, ${player.mode.toUpperCase()}` : ""}`
-                        ].join("\n")
-                    )
-                    .setColor("#2b2d31")
-                    .setThumbnail(`http://cravatar.eu/helmhead/${identifier}/128.png`)
-,
-                ]
-            })
+
+        if (intervalId) {
+            return await interaction.editReply({ content: `There is already a tracker currently running, (${intervalId})` })
+        }
+
+        const identifier = interaction.options.getString('identifier', true);
+
+        // if user did not set the interval, set it to 1
+        const interval = interaction.options.getNumber('interval', false) ?? 1;
+
+        const mention = interaction.options.getUser('mention', false);
+
+        await start_tracker(identifier, Math.floor(interval * 1000), interaction.channelId, mention?.id);
+
+        await interaction.editReply({
+            content: `Tracker started. (\`${intervalId}\`)`
         })
     },
 };

@@ -40,3 +40,5 @@ client.subCommands = new Collection();
 load_events(client);
 
 client.login(process.env.TOKEN);
+
+export { client };
